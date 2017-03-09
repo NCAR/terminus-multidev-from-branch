@@ -1,0 +1,13 @@
+{
+  "name": "ncar/terminus-multidev-from-branch",
+  "description": "A Terminus command to create a multi-dev environment from a given branch.",
+  "type": "terminus-plugin",
+  "autoload": {
+    "psr-4": { "NCAR\\TerminusMultidevBranch\\": "src" }
+  },
+  "extra": {
+    "terminus": {
+      "compatible-version": "1.*"
+    }
+  }
+}
