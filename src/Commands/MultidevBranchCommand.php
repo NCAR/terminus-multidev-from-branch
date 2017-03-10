@@ -121,11 +121,7 @@ class MultidevBranchCommand extends TerminusCommand implements SiteAwareInterfac
     }
 
     //clean up
-    if(file_exists($build_dir))
-    {
-      $this->log()->notice("Cleaning up...");
-      shell_exec("rm -rf $build_dir");
-    }
+    $this->deleteDirectory($build_dir);
 
     $url = "http://{$multi_dev_name}-{$site_name}.pantheon.io";
     $this->log()->notice("Done. Multi-dev created at {url}", ['url' => $url]);
@@ -224,7 +220,7 @@ class MultidevBranchCommand extends TerminusCommand implements SiteAwareInterfac
     else
     {
       //make sure the build/clone dir is clean
-      shell_exec("rm -rf $clone_dir");
+      $this->deleteDirectory($clone_dir);
     }
   }
 
@@ -264,5 +260,19 @@ class MultidevBranchCommand extends TerminusCommand implements SiteAwareInterfac
       }
       $this->log()->notice($workflow->getMessage());
     }
+  }
+
+  /**
+   * rm a directory
+   * @param $dir string /path/to/dir
+   */
+  protected function deleteDirectory($dir)
+  {
+    if(file_exists($dir))
+    {
+      $this->log()->notice("Removing $dir...");
+      shell_exec("rm -rf $dir");
+    }
+
   }
 }
