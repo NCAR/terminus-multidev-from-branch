@@ -38,6 +38,8 @@ class MultidevBranchCommand extends TerminusCommand implements SiteAwareInterfac
       throw new TerminusException("Site {site-env} not found.", ['site-env' => $site_env]);
     }
 
+    $site_name = strtok($site_env, '.');
+
     // this is also the branch name on pantheon, and pantheon limits to 11 characters
     $multi_dev_name = strtolower(substr($branch_name, 0, 11));
     $multi_dev_site = $site->getName() . '.' . $multi_dev_name;
@@ -56,26 +58,49 @@ class MultidevBranchCommand extends TerminusCommand implements SiteAwareInterfac
     //make sure the build/clone dir is clean
     shell_exec("rm -rf $clone_dir");
 
-    //create the new multidev if it doesn't exist
-    if(!$site->getEnvironments()->has($multi_dev_name))
-    {
-      $this->log()->notice(
-        "Creating {multi-dev-site} from {site-env}",
-        ['multi-dev-site' => $multi_dev_site, 'site-env' => $site_env]
-      );
+    $environments = $site->getEnvironments();
 
-      /** @var Workflow $workflow */
-      $workflow = $site->getEnvironments()->create($multi_dev_name, $env);
-      while (!$workflow->checkProgress())
+    //always start fresh by deleting the multidev if it already exists
+    if($environments->has($multi_dev_name))
+    {
+      $env = $environments->get($multi_dev_name);
+      $workflow = $env->delete(['delete_branch' => true]);
+      while(!$workflow->checkProgress())
       {
         // @TODO: Add Symfony progress bar to indicate that something is happening.
       }
-      $this->log()->notice($workflow->getMessage());
-      if(!$workflow->isSuccessful())
+      if($workflow->isSuccessful())
       {
-        throw new TerminusException("Failed to create {multi-dev-site}", ['multi-dev-site' => $multi_dev_site]);
+        $this->log()->notice('Deleted existing multidev environment {env}.', ['env' => $env->id,]);
       }
+      else
+      {
+        throw new TerminusException($workflow->getMessage());
+      }
+
+      //repopulate info from api since terminus caches site/env info
+      $site = $this->sites()->fetch()->get($site_name);
     }
+
+    $this->log()->notice(
+      "Creating {multi-dev-site} from {site-env}",
+      ['multi-dev-site' => $multi_dev_site, 'site-env' => $site_env]
+    );
+
+    /** @var Workflow $workflow */
+    $workflow = $site->getEnvironments()->create($multi_dev_name, $env);
+    while (!$workflow->checkProgress())
+    {
+      // @TODO: Add Symfony progress bar to indicate that something is happening.
+    }
+    if(!$workflow->isSuccessful())
+    {
+      throw new TerminusException("Failed to create {multi-dev-site}", ['multi-dev-site' => $multi_dev_site]);
+    }
+    $this->log()->notice($workflow->getMessage());
+
+    //repopulate again...
+    $site = $this->sites()->fetch()->get($site_name);
 
     $git_dir_options = "--git-dir=$clone_dir/.git --work-tree=$clone_dir/";
 
@@ -99,7 +124,8 @@ class MultidevBranchCommand extends TerminusCommand implements SiteAwareInterfac
     $this->log()->notice($output);
 
     //pull in the branch from github
-    $command = "git $git_dir_options pull git@github.com:NCAR/pantheon-umbrella-upstream.git $multi_dev_name";
+    $this->log()->notice("Pulling from upstream...");
+    $command = "git $git_dir_options pull git@github.com:NCAR/pantheon-umbrella-upstream.git $multi_dev_name --no-edit";
     $output = shell_exec($command);
     $this->log()->notice($output);
 
@@ -119,6 +145,7 @@ class MultidevBranchCommand extends TerminusCommand implements SiteAwareInterfac
     }
 
     //commit and push back up to pantheon
+    $this->log()->notice("Pushing up to Pantheon...");
     $command = "git $git_dir_options push origin $multi_dev_name";
     $output = shell_exec($command);
     if($output)
@@ -140,7 +167,8 @@ class MultidevBranchCommand extends TerminusCommand implements SiteAwareInterfac
       shell_exec("rm -rf $build_dir");
     }
 
-    $this->log()->notice("Done.");
+    $url = "http://{$multi_dev_name}-{$site_name}.pantheon.io";
+    $this->log()->notice("Done. Multi-dev created at {url}", ['url' => $url]);
 
   }
 }
