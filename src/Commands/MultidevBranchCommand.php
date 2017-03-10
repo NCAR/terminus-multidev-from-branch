@@ -3,6 +3,7 @@
 namespace NCAR\TerminusMultidevBranch\Commands;
 
 use Pantheon\Terminus\Commands\TerminusCommand;
+use Pantheon\Terminus\Exceptions\TerminusException;
 use Pantheon\Terminus\Models\Environment;
 use Pantheon\Terminus\Models\Site;
 use Pantheon\Terminus\Models\Workflow;
@@ -14,45 +15,46 @@ class MultidevBranchCommand extends TerminusCommand implements SiteAwareInterfac
   use SiteAwareTrait;
 
   /**
-   * Create a multi-dev from site-name.dev, and merge in code from given branch-name.
+   * Create a multi-dev from site-name.env, and merge in code from given branch-name.
    *
    * @command upstream:multidev-from-branch
+   *
    * @param string $site_env Pantheon site-name.env
    * @param string $branch_name Git branch name
-   * @return bool
+   *
+   * @throws \Pantheon\Terminus\Exceptions\TerminusException
    */
   public function createMultidevFromBranch($site_env, $branch_name)
   {
     /**
      * Make sure the site.env the user wants to use as source exists
      * @var $site Site
-     * @var $multi_dev_env$env Environment
+     * @var $env Environment
      */
     list($site, $env) = $this->getOptionalSiteEnv($site_env);
 
     if(!$site || !$env)
     {
-      $this->log()->error("Site {site-env} not found.", ['site-env' => $site_env]);
-      return false;
+      throw new TerminusException("Site {site-env} not found.", ['site-env' => $site_env]);
     }
 
     // this is also the branch name on pantheon, and pantheon limits to 11 characters
     $multi_dev_name = strtolower(substr($branch_name, 0, 11));
     $multi_dev_site = $site->getName() . '.' . $multi_dev_name;
 
-    $build_dir = sys_get_temp_dir() . "/build-$branch_name";
+    $build_dir = sys_get_temp_dir() . "/build-{$branch_name}";
     $clone_dir = $build_dir . '/' . $site->getName();
 
     if(!file_exists($build_dir))
     {
       if(!mkdir($build_dir))
       {
-        $this->log()->error("Failed to create $build_dir");
-        return false;
+        throw new TerminusException("Failed to create $build_dir");
       }
     }
 
-    //make sure the build dir is clean
+    //make sure the build/clone dir is clean
+    shell_exec("rm -rf $clone_dir");
 
     //create the new multidev if it doesn't exist
     if(!$site->getEnvironments()->has($multi_dev_name))
@@ -71,8 +73,7 @@ class MultidevBranchCommand extends TerminusCommand implements SiteAwareInterfac
       $this->log()->notice($workflow->getMessage());
       if(!$workflow->isSuccessful())
       {
-        $this->log()->error("Failed to create {multi-dev-site}", ['multi-dev-site' => $multi_dev_site]);
-        return false;
+        throw new TerminusException("Failed to create {multi-dev-site}", ['multi-dev-site' => $multi_dev_site]);
       }
     }
 
@@ -85,8 +86,7 @@ class MultidevBranchCommand extends TerminusCommand implements SiteAwareInterfac
 
     if(!$info['git_command'])
     {
-      $this->log()->error("Git info not found for {multi-dev-site}", ['multi-dev-site' => $multi_dev_site]);
-      return false;
+      throw new TerminusException("Git info not found for {multi-dev-site}", ['multi-dev-site' => $multi_dev_site]);
     }
 
     //clone down the multidev locally
@@ -133,6 +133,14 @@ class MultidevBranchCommand extends TerminusCommand implements SiteAwareInterfac
       );
     }
 
-    return true;
+    //clean up
+    if(file_exists($build_dir))
+    {
+      $this->log()->notice("Cleaning up...");
+      shell_exec("rm -rf $build_dir");
+    }
+
+    $this->log()->notice("Done.");
+
   }
 }
