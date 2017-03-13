@@ -16,9 +16,9 @@ class MultidevBranchCommand extends TerminusCommand implements SiteAwareInterfac
   use SiteAwareTrait;
 
   /**
-   * Create a multi-dev from site-name.env, and merge in code from given branch-name.
+   * Create a multi-dev from site-name.env, and merge in code from given branch-name on remote git url.
    *
-   * @command upstream:multidev-from-branch
+   * @command site:multidev-from-branch
    *
    * @param string $site_env Pantheon site-name.env
    * @param string $branch_name Git branch name
