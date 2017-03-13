@@ -83,7 +83,7 @@ class MultidevBranchCommand extends TerminusCommand implements SiteAwareInterfac
 
     //pull in the branch from git remote
     $this->shell(
-      "git $git_dir_options pull $git_remote_url $multi_dev_name --no-edit",
+      "export GIT_MERGE_AUTOEDIT=no; git $git_dir_options pull $git_remote_url $multi_dev_name; unset GIT_MERGE_AUTOEDIT",
       ["Pulling from git remote..."]
     );
 
