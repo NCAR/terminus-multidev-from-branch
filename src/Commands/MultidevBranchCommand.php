@@ -77,7 +77,7 @@ class MultidevBranchCommand extends TerminusCommand implements SiteAwareInterfac
 
     //clone down the new multidev locally
     $this->shell(
-      "pushd $build_dir && $git_command && git $git_dir_options checkout -b $multi_dev_name && popd",
+      "cd $build_dir && $git_command && git $git_dir_options checkout -b $multi_dev_name",
       ["Cloning {multi-dev-site} to {clone-dir}", ['multi-dev-site' => $multi_dev_site, 'clone-dir' => $clone_dir]]
     );
 
